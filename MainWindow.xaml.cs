@@ -23,8 +23,10 @@ namespace BCLauncher
         public MainWindow()
         {
             InitializeComponent();
+            _http.DefaultRequestHeaders.UserAgent.ParseAdd("BCLauncher/1.0");
             LoadConfig();
             NavigateTo(HomeView, HomeNavButton, showActionBar: true);
+            _ = LoadMinecraftBuildsFromGitHub();
         }
 
         private void LoadConfig()
@@ -51,6 +53,107 @@ namespace BCLauncher
             BuildsComboBox.DisplayMemberPath = "Name";
             BuildsListControl.ItemsSource = _config?.Builds;
             LauncherFolderText.Text = $"Рабочая папка лаунчера: {_baseDir}";
+
+            if (BuildsComboBox.Items.Count > 0)
+                BuildsComboBox.SelectedIndex = 0;
+
+            UpdateSelectedBuildDetails();
+        }
+
+        private async Task LoadMinecraftBuildsFromGitHub()
+        {
+            if (_config is null)
+                return;
+
+            try
+            {
+                SetStatus("Загрузка списка сборок", $"Получаем сборки из GitHub Releases, тег {_config.MinecraftReleaseTag}.");
+
+                string apiUrl =
+                    $"https://api.github.com/repos/{_config.GitHubOwner}/{_config.GitHubRepo}/releases/tags/{_config.MinecraftReleaseTag}";
+
+                using HttpResponseMessage response = await _http.GetAsync(apiUrl);
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    SetStatus("Готов к установке", "Не удалось получить список сборок из GitHub. Используется локальный launcher-config.json.");
+                    return;
+                }
+
+                string json = await response.Content.ReadAsStringAsync();
+                List<BuildInfo> githubBuilds = ParseGithubBuilds(json);
+
+                if (githubBuilds.Count == 0)
+                {
+                    SetStatus("Готов к установке", $"В релизе {_config.MinecraftReleaseTag} нет zip-архивов сборок.");
+                    return;
+                }
+
+                _config.Builds = githubBuilds;
+                RefreshBuildsUi();
+                SetStatus("Готов к установке", $"Найдено сборок в GitHub Releases: {githubBuilds.Count}.");
+            }
+            catch (Exception ex)
+            {
+                SetStatus("Готов к установке", $"Не удалось получить сборки из GitHub: {ex.Message}");
+            }
+        }
+
+        private List<BuildInfo> ParseGithubBuilds(string releaseJson)
+        {
+            List<BuildInfo> builds = new();
+
+            using JsonDocument document = JsonDocument.Parse(releaseJson);
+            JsonElement root = document.RootElement;
+            string releaseTag = root.TryGetProperty("tag_name", out JsonElement tagElement)
+                ? tagElement.GetString() ?? _config?.MinecraftReleaseTag ?? ""
+                : _config?.MinecraftReleaseTag ?? "";
+
+            if (!root.TryGetProperty("assets", out JsonElement assets) || assets.ValueKind != JsonValueKind.Array)
+                return builds;
+
+            foreach (JsonElement asset in assets.EnumerateArray())
+            {
+                string assetName = asset.TryGetProperty("name", out JsonElement nameElement)
+                    ? nameElement.GetString() ?? ""
+                    : "";
+
+                string downloadUrl = asset.TryGetProperty("browser_download_url", out JsonElement urlElement)
+                    ? urlElement.GetString() ?? ""
+                    : "";
+
+                if (string.IsNullOrWhiteSpace(assetName) || string.IsNullOrWhiteSpace(downloadUrl))
+                    continue;
+
+                if (!assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                string buildName = Path.GetFileNameWithoutExtension(assetName);
+
+                builds.Add(new BuildInfo
+                {
+                    Name = buildName,
+                    VersionId = buildName,
+                    Version = releaseTag,
+                    MinecraftVersion = _config?.DefaultMinecraftVersion ?? "1.20.1",
+                    DownloadUrl = downloadUrl,
+                    MainClass = "net.minecraft.client.main.Main",
+                    JavaPath = "C:\\Program Files\\Java\\jdk-17\\bin\\java.exe",
+                    MemoryMb = 6144
+                });
+            }
+
+            return builds;
+        }
+
+        private void RefreshBuildsUi()
+        {
+            BuildsComboBox.ItemsSource = null;
+            BuildsComboBox.ItemsSource = _config?.Builds;
+            BuildsComboBox.DisplayMemberPath = "Name";
+
+            BuildsListControl.ItemsSource = null;
+            BuildsListControl.ItemsSource = _config?.Builds;
 
             if (BuildsComboBox.Items.Count > 0)
                 BuildsComboBox.SelectedIndex = 0;
@@ -826,6 +929,10 @@ namespace BCLauncher
 
     public class LauncherConfig
     {
+        public string GitHubOwner { get; set; } = "HeavensFeelBad";
+        public string GitHubRepo { get; set; } = "BazarCraftLauncher";
+        public string MinecraftReleaseTag { get; set; } = "minecraft";
+        public string DefaultMinecraftVersion { get; set; } = "1.20.1";
         public List<BuildInfo> Builds { get; set; } = new();
     }
 

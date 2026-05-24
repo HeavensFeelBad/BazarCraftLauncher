@@ -5,6 +5,7 @@ downloads/
 instances/
 release-artifacts/
 *.user
+*.suo
 *.zip
 *.log
 hs_err_pid*.log

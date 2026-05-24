@@ -1,4 +1,8 @@
 {
+  "githubOwner": "HeavensFeelBad",
+  "githubRepo": "BazarCraftLauncher",
+  "minecraftReleaseTag": "minecraft",
+  "defaultMinecraftVersion": "1.20.1",
   "builds": [
     {
       "name": "BazarCraft",
