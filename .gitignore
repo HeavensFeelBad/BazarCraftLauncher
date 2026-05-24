@@ -3,6 +3,7 @@ bin/
 obj/
 downloads/
 instances/
+release-artifacts/
 *.user
 *.zip
 *.log
