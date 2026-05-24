@@ -1,0 +1,9 @@
+.vs/
+bin/
+obj/
+downloads/
+instances/
+*.user
+*.zip
+*.log
+hs_err_pid*.log

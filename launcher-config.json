@@ -1,0 +1,26 @@
+{
+  "builds": [
+    {
+      "name": "BazarCraft",
+      "versionId": "BazarCraft",
+      "version": "1.0.0",
+      "minecraftVersion": "1.20.1",
+      "inheritsFrom": "",
+      "downloadUrl": "https://github.com/HeavensFeelBad/BazarCraftLauncher/releases/latest/download/BazarCraft.zip",
+      "mainClass": "net.minecraft.client.main.Main",
+      "javaPath": "C:\\Program Files\\Java\\jdk-17\\bin\\java.exe",
+      "memoryMb": 6144
+    },
+    {
+      "name": "SunlitValley",
+      "versionId": "SunlitValley",
+      "version": "1.0.0",
+      "minecraftVersion": "1.20.1",
+      "inheritsFrom": "",
+      "downloadUrl": "https://github.com/HeavensFeelBad/BazarCraftLauncher/releases/latest/download/SunlitValley.zip",
+      "mainClass": "net.minecraft.client.main.Main",
+      "javaPath": "C:\\Program Files\\Java\\jdk-17\\bin\\java.exe",
+      "memoryMb": 6144
+    }
+  ]
+}
