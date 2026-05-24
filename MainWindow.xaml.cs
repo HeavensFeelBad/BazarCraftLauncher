@@ -122,6 +122,10 @@ namespace BCLauncher
                     ? urlElement.GetString() ?? ""
                     : "";
 
+                string assetApiUrl = asset.TryGetProperty("url", out JsonElement assetUrlElement)
+                    ? assetUrlElement.GetString() ?? ""
+                    : "";
+
                 if (string.IsNullOrWhiteSpace(assetName) || string.IsNullOrWhiteSpace(downloadUrl))
                     continue;
 
@@ -137,6 +141,7 @@ namespace BCLauncher
                     Version = releaseTag,
                     MinecraftVersion = _config?.DefaultMinecraftVersion ?? "1.20.1",
                     DownloadUrl = downloadUrl,
+                    AssetApiUrl = assetApiUrl,
                     MainClass = "net.minecraft.client.main.Main",
                     JavaPath = "C:\\Program Files\\Java\\jdk-17\\bin\\java.exe",
                     MemoryMb = 6144
@@ -328,7 +333,7 @@ namespace BCLauncher
                 string instanceDir = Path.Combine(instancesDir, versionId);
 
                 SetStatus("Скачивание", "Загружаем архив сборки. Прогресс появится, если сервер передает размер файла.");
-                await DownloadFile(build.DownloadUrl, zipPath);
+                await DownloadBuildFile(build, zipPath);
 
                 SetStatus("Распаковка", "Распаковываем архив во временную папку лаунчера.");
                 TimeLeftText.Text = "Осталось: распаковка";
@@ -365,7 +370,21 @@ namespace BCLauncher
             }
         }
 
-        private async Task DownloadFile(string source, string destination)
+        private async Task DownloadBuildFile(BuildInfo build, string destination)
+        {
+            try
+            {
+                await DownloadFile(build.DownloadUrl, destination);
+            }
+            catch (HttpRequestException ex) when (ex.StatusCode == System.Net.HttpStatusCode.NotFound
+                && !string.IsNullOrWhiteSpace(build.AssetApiUrl))
+            {
+                SetStatus("Скачивание", "Прямая ссылка GitHub вернула 404. Пробуем скачать через GitHub API.");
+                await DownloadFile(build.AssetApiUrl, destination, useGitHubAssetApi: true);
+            }
+        }
+
+        private async Task DownloadFile(string source, string destination, bool useGitHubAssetApi = false)
         {
             DownloadProgress.IsIndeterminate = true;
 
@@ -394,8 +413,13 @@ namespace BCLauncher
                 throw new Exception("Неподдерживаемый путь загрузки. Используй C:\\file.zip, \\\\server\\share\\file.zip или https://...");
             }
 
+            using HttpRequestMessage request = new(HttpMethod.Get, source);
+
+            if (useGitHubAssetApi)
+                request.Headers.Accept.ParseAdd("application/octet-stream");
+
             using HttpResponseMessage response =
-                await _http.GetAsync(source, HttpCompletionOption.ResponseHeadersRead);
+                await _http.SendAsync(request, HttpCompletionOption.ResponseHeadersRead);
 
             response.EnsureSuccessStatusCode();
 
@@ -943,6 +967,7 @@ namespace BCLauncher
         public string Version { get; set; } = "";
         public string MinecraftVersion { get; set; } = "";
         public string DownloadUrl { get; set; } = "";
+        public string AssetApiUrl { get; set; } = "";
         public string MainClass { get; set; } = "";
         public string JavaPath { get; set; } = "";
         public string InheritsFrom { get; set; } = "";
